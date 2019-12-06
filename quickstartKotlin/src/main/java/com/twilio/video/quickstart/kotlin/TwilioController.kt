@@ -1,15 +1,14 @@
 package com.twilio.video.quickstart.kotlin
 
 import android.content.Context
+import android.media.AudioManager
 import android.preference.PreferenceManager
 import android.util.Log
 import android.view.View
 import com.twilio.video.*
-import com.twllio.video.quickstart.kotlin.utils.RemoteParticipantEventHandler
-import com.twllio.video.quickstart.kotlin.utils.RemoteParticipantListenerResolver
-import com.twllio.video.quickstart.kotlin.utils.RoomEventHandler
-import com.twllio.video.quickstart.kotlin.utils.TwilioRoomListenerResolver
+import com.twllio.video.quickstart.kotlin.utils.*
 import kotlinx.android.synthetic.main.content_video.*
+import java.lang.Exception
 
 class TwilioController(val context: Context, val roomEventHandler: RoomEventHandler, val remoteParticipantEventHandler: RemoteParticipantEventHandler) {
 
@@ -98,14 +97,116 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
             return EncodingParameters(maxAudioBitrate, maxVideoBitrate)
         }
 
-    /*
-     * Room events listener
-     */
-    private val roomListener: Room.Listener by lazy {
-        TwilioRoomListenerResolver.getRoomListener(roomEventHandler)
-    }
-
     private val participantListener: RemoteParticipant.Listener by lazy {
         RemoteParticipantListenerResolver.getRemoteParticipantListener(remoteParticipantEventHandler)
     }
+
+    private var localAudioTrack: LocalAudioTrack? = null
+    private var localVideoTrack: LocalVideoTrack? = null
+    private var alertDialog: android.support.v7.app.AlertDialog? = null
+    private val cameraCapturerCompat: CameraCapturerCompat by lazy {
+        CameraCapturerCompat(context, CameraUtils.getAvailableCameraSource())
+    }
+
+    private val audioManager by lazy {
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+
+    private var participantIdentity: String? = null
+    private var previousAudioMode = 0
+    private var previousMicrophoneMute = false
+    private lateinit var localVideoView: VideoRenderer
+    private var disconnectedFromOnDestroy = false
+    private var isSpeakerPhoneEnabled = true
+
+    /**
+     * public methods
+     */
+
+    fun createAudioAndVideoTracks() {
+        // Share your microphone
+        localAudioTrack = LocalAudioTrack.create(context, true)
+
+        // Share your camera
+        localVideoTrack = LocalVideoTrack.create(context,
+                true,
+                cameraCapturerCompat.videoCapturer)
+    }
+
+    fun recreateLocalVideoTrack() {
+        localVideoTrack = if (localVideoTrack == null && CameraUtils.checkPermissionForCameraAndMicrophone(context)) {
+            LocalVideoTrack.create(context,
+                    true,
+                    cameraCapturerCompat.videoCapturer)
+        } else {
+            localVideoTrack
+        }
+        localVideoTrack?.addRenderer(localVideoView)
+    }
+
+
+    /**
+     * Listener implementation
+     */
+
+    /*
+     * Room events listener
+     * TODO: maybe would be a good idea to have the listener implememntation here in order to avoid complexity
+     *  in the first iteration!
+     */
+    //private val roomListener: Room.Listener by lazy {
+    //    TwilioRoomListenerResolver.getRoomListener(roomEventHandler)
+    //}
+
+    private val roomListener = object : Room.Listener {
+        override fun onConnected(room: Room) {
+            localParticipant = room.localParticipant
+            roomEventHandler.onConnected(room)
+        }
+
+        override fun onReconnected(room: Room) {
+            roomEventHandler.onReconnected(room)
+        }
+
+        override fun onReconnecting(room: Room, twilioException: TwilioException) {
+            roomEventHandler.onReconnecting(room, twilioException)
+        }
+
+        override fun onConnectFailure(room: Room, twilioException: TwilioException) {
+            roomEventHandler.onConnectFailure(room, twilioException)
+        }
+
+        override fun onDisconnected(room: Room, twilioException: TwilioException?) {
+            localParticipant = null
+            roomEventHandler.onDisconnected(room, twilioException)
+        }
+
+        override fun onParticipantConnected(room: Room, participant: RemoteParticipant) {
+            //addRemoteParticipant(participant)
+            roomEventHandler.onParticipantConnected(room, participant)
+        }
+
+        override fun onParticipantDisconnected(room: Room, participant: RemoteParticipant) {
+            //removeRemoteParticipant(participant)
+            roomEventHandler.onParticipantDisconnected(room, participant)
+        }
+
+        override fun onRecordingStarted(room: Room) {
+            /*
+             * Indicates when media shared to a Room is being recorded. Note that
+             * recording is only available in our Group Rooms developer preview.
+             */
+            Log.d(TAG, "onRecordingStarted")
+        }
+
+        override fun onRecordingStopped(room: Room) {
+            /*
+             * Indicates when media shared to a Room is no longer being recorded. Note that
+             * recording is only available in our Group Rooms developer preview.
+             */
+            Log.d(TAG, "onRecordingStopped")
+        }
+    }
+
+
 }
