@@ -5,11 +5,13 @@ import android.preference.PreferenceManager
 import android.util.Log
 import android.view.View
 import com.twilio.video.*
+import com.twllio.video.quickstart.kotlin.utils.RemoteParticipantEventHandler
+import com.twllio.video.quickstart.kotlin.utils.RemoteParticipantListenerResolver
 import com.twllio.video.quickstart.kotlin.utils.RoomEventHandler
 import com.twllio.video.quickstart.kotlin.utils.TwilioRoomListenerResolver
 import kotlinx.android.synthetic.main.content_video.*
 
-class TwilioController(val context: Context, val roomEventHandler: RoomEventHandler) {
+class TwilioController(val context: Context, val roomEventHandler: RoomEventHandler, val remoteParticipantEventHandler: RemoteParticipantEventHandler) {
 
     private val sharedPreferences by lazy {
         PreferenceManager.getDefaultSharedPreferences(context)
@@ -101,5 +103,9 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
      */
     private val roomListener: Room.Listener by lazy {
         TwilioRoomListenerResolver.getRoomListener(roomEventHandler)
+    }
+
+    private val participantListener: RemoteParticipant.Listener by lazy {
+        RemoteParticipantListenerResolver.getRemoteParticipantListener(remoteParticipantEventHandler)
     }
 }
