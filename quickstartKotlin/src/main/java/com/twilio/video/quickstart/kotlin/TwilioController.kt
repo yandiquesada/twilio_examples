@@ -116,7 +116,7 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
     private var previousAudioMode = 0
     private var previousMicrophoneMute = false
     //private lateinit var localVideoView: VideoRenderer
-    private var disconnectedFromOnDestroy = false
+
     private var isSpeakerPhoneEnabled = true
 
     /**
@@ -184,6 +184,24 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
 
     fun restoreAudio() {
         audioManager.isSpeakerphoneOn = isSpeakerPhoneEnabled
+    }
+
+    fun disconnectRoom() {
+        room?.disconnect()
+    }
+
+    fun releaseAudioAndVideoTracks() {
+        localAudioTrack?.release()
+        localVideoTrack?.release()
+    }
+
+    fun unpublishTrack() {
+        localVideoTrack?.let {  localParticipant?.unpublishTrack(it) }
+    }
+
+    fun releaseVideoTrack() {
+        localVideoTrack?.release()
+        localVideoTrack = null
     }
 
     //TODO: Move to Audio utils
@@ -309,14 +327,10 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
         }
 
         override fun onParticipantConnected(room: Room, participant: RemoteParticipant) {
-            //todo
-            //addRemoteParticipant(participant)
             roomEventHandler.onParticipantConnected(room, participant)
         }
 
         override fun onParticipantDisconnected(room: Room, participant: RemoteParticipant) {
-            //todo
-            //removeRemoteParticipant(participant)
             roomEventHandler.onParticipantDisconnected(room, participant)
         }
 

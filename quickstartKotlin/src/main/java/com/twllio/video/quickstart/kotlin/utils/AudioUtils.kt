@@ -1,4 +1,7 @@
 package com.twllio.video.quickstart.kotlin.utils
 
-class AudioUtils {
+import android.media.AudioManager
+
+class AudioUtils(val audioManager: AudioManager) {
+
 }

@@ -68,22 +68,9 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
 
     override fun onResume() {
         super.onResume()
-
         twilioController.recreateLocalVideoTrack(localVideoView)
-
-        /*
-         * If connected to a Room then share the local video track.
-         */
         twilioController.shareLocalVideoTrack()
-
-        /*
-         * Update encoding parameters if they have changed.
-         */
         twilioController.updateEncodingParameters()
-
-        /*
-         * Route audio through cached value.
-         */
         twilioController.restoreAudio()
 
         /*
@@ -98,9 +85,19 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
         }
     }
 
-    /*
-     * The initial state when there is no active room.
-     */
+    override fun onPause() {
+        twilioController.unpublishTrack()
+        twilioController.releaseVideoTrack()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        twilioController.disconnectRoom()
+        disconnectedFromOnDestroy = true
+        twilioController.releaseAudioAndVideoTracks()
+        super.onDestroy()
+    }
+
     private fun initializeUI() {
         connectActionFab.setImageDrawable(ContextCompat.getDrawable(this,
                 R.drawable.ic_video_call_white_24dp))
@@ -129,6 +126,9 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
              * signaled to other Participants in the same Room. When an audio track is
              * disabled, the audio is muted.
              */
+            /*
+             * TODO: move this to the Twilio abstraction layer
+             */
             twilioController.localAudioTrack?.let {
                 val enable = !it.isEnabled
                 it.enable(enable)
@@ -147,6 +147,9 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
             /*
              * Enable/disable the local video track
              */
+            /*
+             * TODO: move this to the Twilio abstraction layer
+             */
             twilioController.localVideoTrack?.let {
                 val enable = !it.isEnabled
                 it.enable(enable)
@@ -164,6 +167,9 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
         }
     }
 
+    /*
+     * TODO: move this to the Twilio abstraction layer
+     */
     private fun switchCameraClickListener(): View.OnClickListener {
         return View.OnClickListener {
             val cameraSource = twilioController.cameraCapturerCompat.cameraSource
@@ -330,7 +336,7 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
 
         // Only one participant is supported
         //TODO: move this from here
-        //twilioController.room.remoteParticipants?.firstOrNull()?.let { addRemoteParticipant(it) }
+        twilioController.room?.remoteParticipants?.firstOrNull()?.let { addRemoteParticipant(it) }
     }
 
     override fun onReconnected(room: Room) {
@@ -349,25 +355,66 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
         initializeUI()
     }
 
+    private var disconnectedFromOnDestroy = false
+
     override fun onDisconnected(room: Room, e: TwilioException?) {
-        //localParticipant = null
         videoStatusTextView.text = "Disconnected from ${room.name}"
         reconnectingProgressBar.visibility = View.GONE;
-        //this@VideoActivity.room = null
+
         // Only reinitialize the UI if disconnect was not called from onDestroy()
-        //if (!disconnectedFromOnDestroy) {
-        //    configureAudio(false)
-        //    initializeUI()
-        //    moveLocalVideoToPrimaryView()
-        //}
+        if (!disconnectedFromOnDestroy) {
+            twilioController.configureAudio(false)
+            initializeUI()
+            moveLocalVideoToPrimaryView()
+        }
+    }
+
+    private fun moveLocalVideoToPrimaryView() {
+        if (thumbnailVideoView.visibility == View.VISIBLE) {
+            thumbnailVideoView.visibility = View.GONE
+            with(twilioController.localVideoTrack) {
+                this?.removeRenderer(thumbnailVideoView)
+                this?.addRenderer(primaryVideoView)
+            }
+            localVideoView = primaryVideoView
+            primaryVideoView.mirror = twilioController.cameraCapturerCompat.cameraSource ==
+                    CameraCapturer.CameraSource.FRONT_CAMERA
+        }
     }
 
     override fun onParticipantConnected(room: Room, participant: RemoteParticipant) {
-        //addRemoteParticipant(participant)
+        addRemoteParticipant(participant)
     }
 
     override fun onParticipantDisconnected(room: Room, participant: RemoteParticipant) {
-        //removeRemoteParticipant(participant)
+        removeRemoteParticipant(participant)
+    }
+
+    /*
+     * Called when participant leaves the room
+     * TODO: this needs to be updated!
+     */
+    private fun removeRemoteParticipant(remoteParticipant: RemoteParticipant) {
+        videoStatusTextView.text = "Participant $remoteParticipant.identity left."
+
+        if (remoteParticipant.identity != twilioController.participantIdentity) {
+            return
+        }
+
+        /*
+         * Remove participant renderer
+         */
+        remoteParticipant.remoteVideoTracks.firstOrNull()?.let { remoteVideoTrackPublication ->
+            if (remoteVideoTrackPublication.isTrackSubscribed) {
+                remoteVideoTrackPublication.remoteVideoTrack?.let { removeParticipantVideo(it) }
+            }
+        }
+        moveLocalVideoToPrimaryView()
+
+    }
+
+    private fun removeParticipantVideo(videoTrack: VideoTrack) {
+        videoTrack.removeRenderer(primaryVideoView)
     }
 
     override fun onRecordingStarted(room: Room) {
@@ -530,7 +577,7 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
                 "[RemoteVideoTrack: enabled=${remoteVideoTrack.isEnabled}, " +
                 "name=${remoteVideoTrack.name}]")
         videoStatusTextView.text = "onVideoTrackSubscribed"
-        //addRemoteParticipantVideo(remoteVideoTrack)
+        addRemoteParticipantVideo(remoteVideoTrack)
     }
 
     override fun onVideoTrackUnsubscribed(remoteParticipant: RemoteParticipant,
@@ -541,7 +588,7 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
                 "[RemoteVideoTrack: enabled=${remoteVideoTrack.isEnabled}, " +
                 "name=${remoteVideoTrack.name}]")
         videoStatusTextView.text = "onVideoTrackUnsubscribed"
-        //removeParticipantVideo(remoteVideoTrack)
+        removeParticipantVideo(remoteVideoTrack)
     }
 
     override fun onVideoTrackSubscriptionFailed(remoteParticipant: RemoteParticipant,
@@ -559,6 +606,4 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
                 Snackbar.LENGTH_LONG)
                 .show()
     }
-
-
 }
