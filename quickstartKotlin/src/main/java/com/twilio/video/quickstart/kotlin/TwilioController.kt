@@ -112,7 +112,7 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
-    private var participantIdentity: String? = null
+    var participantIdentity: String? = null
     private var previousAudioMode = 0
     private var previousMicrophoneMute = false
     //private lateinit var localVideoView: VideoRenderer
@@ -231,6 +231,10 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
         room = Video.connect(context, connectOptionsBuilder.build(), roomListener)
     }
 
+    fun addRemoteParticipant(remoteParticipant: RemoteParticipant) {
+
+    }
+
     /**
      * Access Token Implementaion
      */
@@ -328,7 +332,7 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
     //    RemoteParticipantListenerResolver.getRemoteParticipantListener(remoteParticipantEventHandler)
     //}
 
-    private val participantListener = object : RemoteParticipant.Listener {
+    val participantListener = object : RemoteParticipant.Listener {
         override fun onAudioTrackPublished(remoteParticipant: RemoteParticipant,
                                            remoteAudioTrackPublication: RemoteAudioTrackPublication) {
             remoteParticipantEventHandler.onAudioTrackPublished(remoteParticipant, remoteAudioTrackPublication)

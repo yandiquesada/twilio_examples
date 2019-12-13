@@ -227,6 +227,68 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
     }
 
     /**
+     *   add remote participant and addRemoteParticipantVideo implementations
+     *   TODO: this section must be refactorized
+     */
+
+    /*
+     * Called when participant joins the room
+     */
+    private fun addRemoteParticipant(remoteParticipant: RemoteParticipant) {
+        /*
+         * This app only displays video for one additional participant per Room
+         */
+        if (thumbnailVideoView.visibility == View.VISIBLE) {
+            Snackbar.make(connectActionFab,
+                    "Multiple participants are not currently support in this UI",
+                    Snackbar.LENGTH_LONG)
+                    .setAction("Action", null).show()
+            return
+        }
+        twilioController.participantIdentity = remoteParticipant.identity
+        videoStatusTextView.text = "Participant ${twilioController.participantIdentity} joined"
+
+
+        //Twilio logic must go inside twilio abstraction layer
+        /*
+         * Add participant renderer
+         */
+        remoteParticipant.remoteVideoTracks.firstOrNull()?.let { remoteVideoTrackPublication ->
+            if (remoteVideoTrackPublication.isTrackSubscribed) {
+                remoteVideoTrackPublication.remoteVideoTrack?.let { addRemoteParticipantVideo(it) }
+            }
+        }
+
+        /*
+         * Start listening for participant events
+         */
+        remoteParticipant.setListener(twilioController.participantListener)
+    }
+
+    /*
+     * Set primary view as renderer for participant video track
+     */
+    private fun addRemoteParticipantVideo(videoTrack: VideoTrack) {
+        moveLocalVideoToThumbnailView()
+        primaryVideoView.mirror = false
+        videoTrack.addRenderer(primaryVideoView)
+    }
+
+    private fun moveLocalVideoToThumbnailView() {
+        if (thumbnailVideoView.visibility == View.GONE) {
+            thumbnailVideoView.visibility = View.VISIBLE
+            with(twilioController.localVideoTrack) {
+                this?.removeRenderer(primaryVideoView)
+                this?.addRenderer(thumbnailVideoView)
+            }
+            localVideoView = thumbnailVideoView
+            //TODO: move this to the Twilio abstraction layer
+            thumbnailVideoView.mirror = twilioController.cameraCapturerCompat.cameraSource ==
+                    CameraCapturer.CameraSource.FRONT_CAMERA
+        }
+    }
+
+    /**
      * Listener implementation section
      */
 
@@ -251,8 +313,8 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
 
     override fun onConnectFailure(room: Room, e: TwilioException) {
         videoStatusTextView.text = "Failed to connect"
-        //configureAudio(false)
-        //initializeUI()
+        twilioController.configureAudio(false)
+        initializeUI()
     }
 
     override fun onDisconnected(room: Room, e: TwilioException?) {
