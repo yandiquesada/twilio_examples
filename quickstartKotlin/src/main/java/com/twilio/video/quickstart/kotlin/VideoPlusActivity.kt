@@ -66,6 +66,38 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
         initializeUI()
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        twilioController.recreateLocalVideoTrack(localVideoView)
+
+        /*
+         * If connected to a Room then share the local video track.
+         */
+        twilioController.shareLocalVideoTrack()
+
+        /*
+         * Update encoding parameters if they have changed.
+         */
+        twilioController.updateEncodingParameters()
+
+        /*
+         * Route audio through cached value.
+         */
+        twilioController.restoreAudio()
+
+        /*
+         * Update reconnecting UI
+         * TODO: move this to the Twilio abstraction layer
+         */
+        twilioController.room?.let {
+            reconnectingProgressBar.visibility = if (it.state != Room.State.RECONNECTING)
+                View.GONE else
+                View.VISIBLE
+            videoStatusTextView.text = "Connected to ${it.name}"
+        }
+    }
+
     /*
      * The initial state when there is no active room.
      */

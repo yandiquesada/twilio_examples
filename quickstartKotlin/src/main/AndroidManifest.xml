@@ -22,13 +22,26 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
+
         <activity
-            android:name=".VideoActivity"
-            android:configChanges="orientation|screenSize" >
+            android:name=".VideoPlusActivity"
+            android:theme="@style/AppTheme.Settings"
+            android:label="@string/title_activity_video_plus">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+        </activity>
+
+        <activity
+            android:name=".VideoActivity"
+            android:configChanges="orientation|screenSize" >
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+            </intent-filter>
+
         </activity>
 
         <activity
@@ -41,14 +54,7 @@
                 android:value="com.twilio.video.quickstart.kotlin.VideoActivity" />
         </activity>
 
-        <activity
-            android:name=".VideoPlusActivity"
-            android:theme="@style/AppTheme.Settings"
-            android:label="@string/title_activity_video_plus">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.twilio.video.quickstart.kotlin.VideoActivity" />
-        </activity>
+
     </application>
 
 </manifest>

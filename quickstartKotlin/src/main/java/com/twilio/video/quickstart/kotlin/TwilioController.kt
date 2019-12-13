@@ -174,6 +174,18 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
         }
     }
 
+    fun updateEncodingParameters() {
+        localParticipant?.setEncodingParameters(encodingParameters)
+    }
+
+    fun shareLocalVideoTrack() {
+        localVideoTrack?.let { localParticipant?.publishTrack(it) }
+    }
+
+    fun restoreAudio() {
+        audioManager.isSpeakerphoneOn = isSpeakerPhoneEnabled
+    }
+
     //TODO: Move to Audio utils
     private fun requestAudioFocus() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
