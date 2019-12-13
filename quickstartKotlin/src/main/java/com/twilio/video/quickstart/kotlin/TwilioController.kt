@@ -1,7 +1,10 @@
 package com.twilio.video.quickstart.kotlin
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.os.Build
 import android.preference.PreferenceManager
 import android.util.Log
 import android.view.View
@@ -16,7 +19,7 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
         PreferenceManager.getDefaultSharedPreferences(context)
     }
 
-    private val CAMERA_MIC_PERMISSION_REQUEST_CODE = 1
+    val CAMERA_MIC_PERMISSION_REQUEST_CODE = 1
     private val TAG = "VideoActivity"
 
     /*
@@ -34,7 +37,7 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
     /*
      * A Room represents communication between a local participant and one or more participants.
      */
-    private var room: Room? = null
+    var room: Room? = null
     private var localParticipant: LocalParticipant? = null
 
     /*
@@ -104,14 +107,15 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
         CameraCapturerCompat(context, CameraUtils.getAvailableCameraSource())
     }
 
-    private val audioManager by lazy {
+    //TODO: could be out of this class, since is not from twilio
+    val audioManager by lazy {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
     private var participantIdentity: String? = null
     private var previousAudioMode = 0
     private var previousMicrophoneMute = false
-    private lateinit var localVideoView: VideoRenderer
+    //private lateinit var localVideoView: VideoRenderer
     private var disconnectedFromOnDestroy = false
     private var isSpeakerPhoneEnabled = true
 
@@ -133,7 +137,7 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
                 cameraCapturerCompat.videoCapturer)
     }
 
-    fun recreateLocalVideoTrack() {
+    fun recreateLocalVideoTrack(localVideoView: VideoRenderer) {
         localVideoTrack = if (localVideoTrack == null && CameraUtils.checkPermissionForCameraAndMicrophone(context)) {
             LocalVideoTrack.create(context,
                     true,
@@ -142,6 +146,113 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
             localVideoTrack
         }
         localVideoTrack?.addRenderer(localVideoView)
+    }
+
+    fun configureAudio(enable: Boolean) {
+        with(audioManager) {
+            if (enable) {
+                previousAudioMode = audioManager.mode
+                // Request audio focus before making any device switch
+                requestAudioFocus()
+                /*
+                 * Use MODE_IN_COMMUNICATION as the default audio mode. It is required
+                 * to be in this mode when playout and/or recording starts for the best
+                 * possible VoIP performance. Some devices have difficulties with
+                 * speaker mode if this is not set.
+                 */
+                mode = AudioManager.MODE_IN_COMMUNICATION
+                /*
+                 * Always disable microphone mute during a WebRTC call.
+                 */
+                previousMicrophoneMute = isMicrophoneMute
+                isMicrophoneMute = false
+            } else {
+                mode = previousAudioMode
+                abandonAudioFocus(null)
+                isMicrophoneMute = previousMicrophoneMute
+            }
+        }
+    }
+
+    //TODO: Move to Audio utils
+    private fun requestAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val playbackAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(playbackAttributes)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setOnAudioFocusChangeListener { }
+                    .build()
+            audioManager.requestAudioFocus(focusRequest)
+        } else {
+            audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        }
+    }
+
+    fun connectToRoom(roomName: String) {
+        configureAudio(true)
+        val connectOptionsBuilder = ConnectOptions.Builder(accessToken)
+                .roomName(roomName)
+
+        /*
+         * Add local audio track to connect options to share with participants.
+         */
+        localAudioTrack?.let { connectOptionsBuilder.audioTracks(listOf(it)) }
+
+        /*
+         * Add local video track to connect options to share with participants.
+         */
+        localVideoTrack?.let { connectOptionsBuilder.videoTracks(listOf(it)) }
+
+        /*
+         * Set the preferred audio and video codec for media.
+         */
+        connectOptionsBuilder.preferAudioCodecs(listOf(audioCodec))
+        connectOptionsBuilder.preferVideoCodecs(listOf(videoCodec))
+
+        /*
+         * Set the sender side encoding parameters.
+         */
+        connectOptionsBuilder.encodingParameters(encodingParameters)
+
+        /*
+         * Toggles automatic track subscription. If set to false, the LocalParticipant will receive
+         * notifications of track publish events, but will not automatically subscribe to them. If
+         * set to true, the LocalParticipant will automatically subscribe to tracks as they are
+         * published. If unset, the default is true. Note: This feature is only available for Group
+         * Rooms. Toggling the flag in a P2P room does not modify subscription behavior.
+         */
+        connectOptionsBuilder.enableAutomaticSubscription(enableAutomaticSubscription)
+
+        room = Video.connect(context, connectOptionsBuilder.build(), roomListener)
+    }
+
+    /**
+     * Access Token Implementaion
+     */
+
+    fun setAccessToken() {
+        if (!BuildConfig.USE_TOKEN_SERVER) {
+            /*
+             * OPTION 1 - Generate an access token from the getting started portal
+             * https://www.twilio.com/console/video/dev-tools/testing-tools and add
+             * the variable TWILIO_ACCESS_TOKEN setting it equal to the access token
+             * string in your local.properties file.
+             */
+            this.accessToken = TWILIO_ACCESS_TOKEN
+        } else {
+            /*
+             * OPTION 2 - Retrieve an access token from your own web app.
+             * Add the variable ACCESS_TOKEN_SERVER assigning it to the url of your
+             * token server and the variable USE_TOKEN_SERVER=true to your
+             * local.properties file.
+             */
+            //retrieveAccessTokenfromServer()
+        }
     }
 
 

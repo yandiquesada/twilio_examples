@@ -40,6 +40,15 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.twilio.video.quickstart.kotlin.VideoActivity" />
         </activity>
+
+        <activity
+            android:name=".VideoPlusActivity"
+            android:theme="@style/AppTheme.Settings"
+            android:label="@string/title_activity_video_plus">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.twilio.video.quickstart.kotlin.VideoActivity" />
+        </activity>
     </application>
 
 </manifest>
