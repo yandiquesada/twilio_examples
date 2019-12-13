@@ -63,7 +63,7 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
         /*
          * Set the initial state of the UI
          */
-        //initializeUI()
+        initializeUI()
     }
 
     /*
@@ -75,20 +75,75 @@ class VideoPlusActivity : AppCompatActivity(), RoomEventHandler, RemoteParticipa
         connectActionFab.show()
         connectActionFab.setOnClickListener(connectActionClickListener())
         switchCameraActionFab.show()
-        /*switchCameraActionFab.setOnClickListener(switchCameraClickListener())
+        switchCameraActionFab.setOnClickListener(switchCameraClickListener())
         localVideoActionFab.show()
         localVideoActionFab.setOnClickListener(localVideoClickListener())
 
-        screenShare.show()
-        screenShare.setOnClickListener(screenShareListener())
+        //screenShare.show()
+        //screenShare.setOnClickListener(screenShareListener())
 
         muteActionFab.show()
-        muteActionFab.setOnClickListener(muteClickListener())*/
+        muteActionFab.setOnClickListener(muteClickListener())
     }
 
     /**
      * UI Listener implementation section
      */
+
+    private fun muteClickListener(): View.OnClickListener {
+        return View.OnClickListener {
+            /*
+             * Enable/disable the local audio track. The results of this operation are
+             * signaled to other Participants in the same Room. When an audio track is
+             * disabled, the audio is muted.
+             */
+            twilioController.localAudioTrack?.let {
+                val enable = !it.isEnabled
+                it.enable(enable)
+                val icon = if (enable)
+                    R.drawable.ic_mic_white_24dp
+                else
+                    R.drawable.ic_mic_off_black_24dp
+                muteActionFab.setImageDrawable(ContextCompat.getDrawable(
+                        this@VideoPlusActivity, icon))
+            }
+        }
+    }
+
+    private fun localVideoClickListener(): View.OnClickListener {
+        return View.OnClickListener {
+            /*
+             * Enable/disable the local video track
+             */
+            twilioController.localVideoTrack?.let {
+                val enable = !it.isEnabled
+                it.enable(enable)
+                val icon: Int
+                if (enable) {
+                    icon = R.drawable.ic_videocam_white_24dp
+                    switchCameraActionFab.show()
+                } else {
+                    icon = R.drawable.ic_videocam_off_black_24dp
+                    switchCameraActionFab.hide()
+                }
+                localVideoActionFab.setImageDrawable(
+                        ContextCompat.getDrawable(this@VideoPlusActivity, icon))
+            }
+        }
+    }
+
+    private fun switchCameraClickListener(): View.OnClickListener {
+        return View.OnClickListener {
+            val cameraSource = twilioController.cameraCapturerCompat.cameraSource
+            twilioController.cameraCapturerCompat.switchCamera()
+            if (thumbnailVideoView.visibility == View.VISIBLE) {
+                thumbnailVideoView.mirror = cameraSource == CameraCapturer.CameraSource.BACK_CAMERA
+            } else {
+                primaryVideoView.mirror = cameraSource == CameraCapturer.CameraSource.BACK_CAMERA
+            }
+        }
+    }
+
     private fun connectActionClickListener(): View.OnClickListener {
         return View.OnClickListener { showConnectDialog() }
     }

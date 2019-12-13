@@ -100,10 +100,10 @@ class TwilioController(val context: Context, val roomEventHandler: RoomEventHand
             return EncodingParameters(maxAudioBitrate, maxVideoBitrate)
         }
 
-    private var localAudioTrack: LocalAudioTrack? = null
-    private var localVideoTrack: LocalVideoTrack? = null
+    var localAudioTrack: LocalAudioTrack? = null
+    var localVideoTrack: LocalVideoTrack? = null
     private var alertDialog: android.support.v7.app.AlertDialog? = null
-    private val cameraCapturerCompat: CameraCapturerCompat by lazy {
+    val cameraCapturerCompat: CameraCapturerCompat by lazy {
         CameraCapturerCompat(context, CameraUtils.getAvailableCameraSource())
     }
 
